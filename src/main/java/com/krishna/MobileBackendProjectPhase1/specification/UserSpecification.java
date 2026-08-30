@@ -18,25 +18,8 @@ public class UserSpecification {
                 return criteriaBuilder.conjunction();
             }
 
-            String searchValue =
-                    "%" + name.trim().toLowerCase() + "%";
+            String searchValue = "%" + name.trim().toLowerCase() + "%";
 
-            return criteriaBuilder.or(
-
-                    criteriaBuilder.like(
-                            criteriaBuilder.lower(
-                                    root.get("firstName")
-                            ),
-                            searchValue
-                    ),
-
-                    criteriaBuilder.like(
-                            criteriaBuilder.lower(
-                                    root.get("lastName")
-                            ),
-                            searchValue
-                    )
-            );
-        };
+            return criteriaBuilder.or(criteriaBuilder.like(criteriaBuilder.lower(root.get("firstName")), searchValue), criteriaBuilder.like(criteriaBuilder.lower(root.get("lastName")), searchValue));};
     }
 }

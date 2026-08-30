@@ -20,28 +20,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest request) {
 
-        User user = userRepository
-                .findByEmail(request.getEmail())
-                .orElseThrow(() ->
-                        new InvalidCredentialsException(
-                                "Invalid email or password"
-                        )
-                );
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
 
-        if (!user.getPassword()
-                .equals(request.getPassword())) {
-
+        if (!user.getPassword().equals(request.getPassword())) {
             throw new InvalidCredentialsException(
                     "Invalid email or password"
             );
         }
 
-        return new LoginResponse(
-                user.getId(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getEmail(),
-                "Login successful"
-        );
+        return new LoginResponse(user.getId(), user.getFirstName(), user.getLastName(), user.getEmail(), "Login successful");
     }
 }

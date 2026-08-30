@@ -3,13 +3,13 @@ import com.krishna.MobileBackendProjectPhase1.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository
         extends JpaRepository<User, Long>,
         JpaSpecificationExecutor<User> {
-
-    Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
 
@@ -18,4 +18,7 @@ public interface UserRepository
     boolean existsByEmailAndIdNot(String email, Long id);
 
     boolean existsByMobileNumberAndIdNot(String mobileNumber, Long id);
+
+    Optional<User> findByEmail(String mail);
+
 }

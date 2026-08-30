@@ -1,7 +1,7 @@
 package com.krishna.MobileBackendProjectPhase1.service;
 
-import com.krishna.MobileBackendProjectPhase1.dto.request.UserRequest;
-import com.krishna.MobileBackendProjectPhase1.dto.request.UserUpdateRequest;
+import com.krishna.MobileBackendProjectPhase1.dto.request.userRequest.UserRequest;
+import com.krishna.MobileBackendProjectPhase1.dto.request.userRequest.UserUpdateRequest;
 import com.krishna.MobileBackendProjectPhase1.dto.response.UserResponse;
 import com.krishna.MobileBackendProjectPhase1.entity.User;
 import com.krishna.MobileBackendProjectPhase1.exception.DuplicateUserException;
@@ -9,44 +9,39 @@ import com.krishna.MobileBackendProjectPhase1.exception.UserNotFoundException;
 import com.krishna.MobileBackendProjectPhase1.repository.UserRepository;
 import com.krishna.MobileBackendProjectPhase1.specification.UserSpecification;
 
-import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-
 import org.springframework.data.jpa.domain.Specification;
-
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class UserServiceImpl implements UserService {
+public class UserServiceImpl
+        implements UserService {
 
     private final UserRepository userRepository;
 
     public UserServiceImpl(UserRepository userRepository) {
+
         this.userRepository = userRepository;
     }
 
-    @Override
-    public UserResponse createUser(@Valid UserRequest request) {
+    // Add User
 
-        // Check duplicate email
+    @Override
+    @Transactional
+    public UserResponse createUser(UserRequest request) {
+
         if (userRepository.existsByEmail(request.getEmail())) {
 
-            throw new DuplicateUserException(
-                    "Email already registered: " + request.getEmail()
-            );
+            throw new DuplicateUserException("Email already registered: " + request.getEmail());
         }
 
-        // Check duplicate mobile number
-        if (userRepository.existsByMobileNumber(
-                request.getMobileNumber())) {
+        if (userRepository.existsByMobileNumber(request.getMobileNumber())) {
 
-            throw new DuplicateUserException(
-                    "Mobile number already registered: "
-                            + request.getMobileNumber()
-            );
+            throw new DuplicateUserException("Mobile number already registered: " + request.getMobileNumber());
         }
 
         User user = new User();
@@ -62,130 +57,87 @@ public class UserServiceImpl implements UserService {
         return new UserResponse(savedUser);
     }
 
+    //Get All Users
+
     @Override
-    public Page<UserResponse> getAllUsers(
-            int page,
-            int size,
-            String sort) {
+    @Transactional(readOnly = true)
+    public Page<UserResponse> getAllUsers(int page, int size, String sort) {
 
-        Pageable pageable = createPageable(
-                page,
-                size,
-                sort
-        );
+        Pageable pageable = createPageable(page, size, sort);
 
-        Page<User> users =
-                userRepository.findAll(pageable);
+        Page<User> users = userRepository.findAll(pageable);
 
         return users.map(UserResponse::new);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
 
-        User user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new UserNotFoundException(
-                                "User not found with id: " + id
-                        )
-                );
+        User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
 
         return new UserResponse(user);
     }
 
     @Override
-    public UserResponse updateUser(
-            Long id,
-            UserUpdateRequest request) {
+    @Transactional
+    public UserResponse updateUser(Long id, UserUpdateRequest request) {
 
-        User user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new UserNotFoundException(
-                                "User not found with id: " + id
-                        )
-                );
+        User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
 
-        // Check email belongs to another user
-        if (userRepository.existsByEmailAndIdNot(
-                request.getEmail(),
-                id)) {
+        if (userRepository.existsByEmailAndIdNot(request.getEmail(), id)) {
 
-            throw new DuplicateUserException(
-                    "Email already registered: "
-                            + request.getEmail()
-            );
+            throw new DuplicateUserException("Email already registered: " + request.getEmail());
         }
 
-        // Check mobile belongs to another user
-        if (userRepository.existsByMobileNumberAndIdNot(
-                request.getMobileNumber(),
-                id)) {
+        if (userRepository.existsByMobileNumberAndIdNot(request.getMobileNumber(), id)) {
 
-            throw new DuplicateUserException(
-                    "Mobile number already registered: "
-                            + request.getMobileNumber()
-            );
+            throw new DuplicateUserException("Mobile number already registered: " + request.getMobileNumber());
         }
 
         user.setFirstName(request.getFirstName());
+
         user.setLastName(request.getLastName());
+
         user.setEmail(request.getEmail());
+
         user.setMobileNumber(request.getMobileNumber());
 
-
-        if (request.getPassword() != null
-                && !request.getPassword().isBlank()) {
-
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
             user.setPassword(request.getPassword());
         }
 
-        User updatedUser = userRepository.save(user);
-
-        return new UserResponse(updatedUser);
+        return new UserResponse(userRepository.save(user));
     }
 
+    // Delete User
+
     @Override
+    @Transactional
     public void deleteUser(Long id) {
 
         if (!userRepository.existsById(id)) {
 
-            throw new UserNotFoundException(
-                    "User not found with id: " + id
-            );
+            throw new UserNotFoundException("User not found with id: " + id);
         }
 
         userRepository.deleteById(id);
     }
 
     @Override
-    public Page<UserResponse> searchUsers(
-            String name,
-            int page,
-            int size,
-            String sort) {
+    @Transactional(readOnly = true)
+    public Page<UserResponse> searchUsers(String name, int page, int size, String sort) {
 
-        Pageable pageable = createPageable(
-                page,
-                size,
-                sort
-        );
+        Pageable pageable = createPageable(page, size, sort);
 
-        Specification<User> specification =
-                UserSpecification.nameContains(name);
+        Specification<User> specification = UserSpecification.nameContains(name);
 
-        Page<User> users =
-                userRepository.findAll(
-                        specification,
-                        pageable
-                );
+        Page<User> users = userRepository.findAll(specification,pageable);
 
         return users.map(UserResponse::new);
     }
 
-    private Pageable createPageable(
-            int page,
-            int size,
-            String sort) {
+    private Pageable createPageable(int page, int size, String sort) {
 
         String[] sortParts = sort.split(",");
 
@@ -193,21 +145,11 @@ public class UserServiceImpl implements UserService {
 
         Sort.Direction direction = Sort.Direction.ASC;
 
-        if (sortParts.length > 1
-                && sortParts[1].equalsIgnoreCase("desc")) {
+        if (sortParts.length > 1 && sortParts[1].equalsIgnoreCase("desc")) {
 
             direction = Sort.Direction.DESC;
         }
 
-        Sort sorting = Sort.by(
-                direction,
-                property
-        );
-
-        return PageRequest.of(
-                page,
-                size,
-                sorting
-        );
+        return PageRequest.of(page, size, Sort.by(direction, property));
     }
 }

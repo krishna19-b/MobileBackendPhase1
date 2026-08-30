@@ -1,7 +1,7 @@
 package com.krishna.MobileBackendProjectPhase1.service;
 
-import com.krishna.MobileBackendProjectPhase1.dto.request.UserRequest;
-import com.krishna.MobileBackendProjectPhase1.dto.request.UserUpdateRequest;
+import com.krishna.MobileBackendProjectPhase1.dto.request.userRequest.UserRequest;
+import com.krishna.MobileBackendProjectPhase1.dto.request.userRequest.UserUpdateRequest;
 import com.krishna.MobileBackendProjectPhase1.dto.response.UserResponse;
 
 import jakarta.validation.Valid;

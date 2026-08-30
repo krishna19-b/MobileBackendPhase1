@@ -1,4 +1,4 @@
-package com.krishna.MobileBackendProjectPhase1.dto.request;
+package com.krishna.MobileBackendProjectPhase1.dto.request.userRequest;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;

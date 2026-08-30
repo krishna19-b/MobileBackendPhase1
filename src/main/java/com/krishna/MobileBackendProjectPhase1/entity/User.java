@@ -3,6 +3,8 @@ package com.krishna.MobileBackendProjectPhase1.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users2")
@@ -12,10 +14,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "first_name", nullable = false)
+    @Column(nullable = false)
     private String firstName;
 
-    @Column(name = "last_name", nullable = false)
     private String lastName;
 
     @Column(nullable = false, unique = true)
@@ -27,29 +28,47 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false)
+    // Created / Updated Time
+
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    // One User -> One Profile
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Profile profile;
+
+    // One User -> Many Addresses
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Address> addresses = new ArrayList<>();
+
+    // One User -> Many Orders
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<Order> orders = new ArrayList<>();
+
+
     public User() {
     }
 
+
     @PrePersist
-    public void onCreate() {
+    protected void onCreate() {
 
-        LocalDateTime now = LocalDateTime.now();
-
-        createdAt = now;
-        updatedAt = now;
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 
+
     @PreUpdate
-    public void onUpdate() {
+    protected void onUpdate() {
 
         updatedAt = LocalDateTime.now();
     }
+
 
     public Long getId() {
         return id;
@@ -59,6 +78,7 @@ public class User {
         this.id = id;
     }
 
+
     public String getFirstName() {
         return firstName;
     }
@@ -66,6 +86,7 @@ public class User {
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
+
 
     public String getLastName() {
         return lastName;
@@ -75,6 +96,7 @@ public class User {
         this.lastName = lastName;
     }
 
+
     public String getEmail() {
         return email;
     }
@@ -82,6 +104,7 @@ public class User {
     public void setEmail(String email) {
         this.email = email;
     }
+
 
     public String getMobileNumber() {
         return mobileNumber;
@@ -91,6 +114,7 @@ public class User {
         this.mobileNumber = mobileNumber;
     }
 
+
     public String getPassword() {
         return password;
     }
@@ -99,11 +123,64 @@ public class User {
         this.password = password;
     }
 
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+
+    public Profile getProfile() {
+        return profile;
+    }
+
+    public void setProfile(Profile profile) {
+
+        this.profile = profile;
+
+        if (profile != null) {
+            profile.setUser(this);
+        }
+    }
+
+
+    public List<Address> getAddresses() {
+        return addresses;
+    }
+
+    public void setAddresses(List<Address> addresses) {
+        this.addresses = addresses;
+    }
+
+
+    public List<Order> getOrders() {
+        return orders;
+    }
+
+    public void setOrders(List<Order> orders) {
+        this.orders = orders;
+    }
+
+
+    // =========================
+    // Address Helper Methods
+    // =========================
+
+    public void addAddress(Address address) {
+
+        addresses.add(address);
+
+        address.setUser(this);
+    }
+
+
+    public void removeAddress(Address address) {
+
+        addresses.remove(address);
+
+        address.setUser(null);
     }
 }
