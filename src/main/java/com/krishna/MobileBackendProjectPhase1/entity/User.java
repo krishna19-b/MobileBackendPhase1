@@ -164,10 +164,7 @@ public class User {
         this.orders = orders;
     }
 
-
-    // =========================
-    // Address Helper Methods
-    // =========================
+    // Address Helper Method
 
     public void addAddress(Address address) {
 

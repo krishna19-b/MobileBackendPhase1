@@ -3,12 +3,14 @@ package com.krishna.MobileBackendProjectPhase1.controller.userContoller;
 import com.krishna.MobileBackendProjectPhase1.dto.request.userRequest.UserRequest;
 import com.krishna.MobileBackendProjectPhase1.dto.request.userRequest.UserUpdateRequest;
 import com.krishna.MobileBackendProjectPhase1.dto.response.ApiResponse;
+import com.krishna.MobileBackendProjectPhase1.dto.response.PageResponse;
 import com.krishna.MobileBackendProjectPhase1.dto.response.UserResponse;
 import com.krishna.MobileBackendProjectPhase1.service.UserService;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 
+import jakarta.validation.constraints.PositiveOrZero;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,16 +32,18 @@ public class UserController {
     @PostMapping
     public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody UserRequest request) {
         UserResponse userResponse = userService.createUser(request);
+
         ApiResponse<UserResponse> response = new ApiResponse<>(true, "User created successfully", userResponse);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // Get All User Details
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<UserResponse>>> getAllUsers(@RequestParam(defaultValue = "0") @Positive(message = "Page must be greater than 0") int page, @RequestParam(defaultValue = "10") @Positive(message = "Size must be greater than 0") int size, @RequestParam(defaultValue = "createdAt,desc") String sort)
+    public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getAllUsers(@RequestParam(defaultValue = "0") @PositiveOrZero(message = "Page must be greater than 0") int page, @RequestParam(defaultValue = "10") @Positive(message = "Size must be greater than 0") int size, @RequestParam(defaultValue = "createdAt,desc") String sort)
     {
         Page<UserResponse> users = userService.getAllUsers(page, size, sort);
-        ApiResponse<Page<UserResponse>> response =new ApiResponse<>(true, "Users retrieved successfully", users);
+        PageResponse<UserResponse> pageResponse=new PageResponse<>(users.getContent(), users.getNumber(), users.getSize(), users.getTotalElements(), users.getTotalPages());
+        ApiResponse<PageResponse<UserResponse>> response =new ApiResponse<>(true, "Users retrieved successfully", pageResponse);
         return ResponseEntity.ok(response);
     }
 
@@ -74,12 +78,13 @@ public class UserController {
 
  // Serach By Name
     @GetMapping("/search")
-    public ResponseEntity<ApiResponse<Page<UserResponse>>> searchUsers(@RequestParam String name,
+    public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> searchUsers(@RequestParam String firstName,
                                                                        @RequestParam(defaultValue = "0") int page,
-                                                                       @RequestParam(defaultValue = "10") int size,
+                                                                       @RequestParam(defaultValue = "5") int size,
                                                                        @RequestParam(defaultValue = "createdAt,desc") String sort) {
-        Page<UserResponse> users = userService.searchUsers(name, page, size, sort);
-        ApiResponse<Page<UserResponse>> response = new ApiResponse<>(true, "Users found successfully", users);
+        Page<UserResponse> users = userService.searchUsers(firstName, page, size, sort);
+        PageResponse<UserResponse> pageResponse=new PageResponse<>(users.getContent(), users.getNumber(), users.getSize(), users.getTotalElements(), users.getTotalPages());
+        ApiResponse<PageResponse<UserResponse>> response = new ApiResponse<>(true, "Users found successfully", pageResponse);
         return ResponseEntity.ok(response);
     }
 }

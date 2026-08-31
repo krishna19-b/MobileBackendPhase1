@@ -41,10 +41,14 @@ public class ProductService {
 
             throw new DuplicateProductException("Product already exists: "+ request.getName());
         }
-      Product product=new Product();
+        Category category = categoryRepository.findById(request.getCategoryId()).orElseThrow(() ->
+                        new CategoryNotFoundException("Category not found with id: " + request.getCategoryId()));
+
+        Product product=new Product();
         product.setName(request.getName());
         product.setPrice(request.getPrice());
-
+        product.setCategory(category);
+        product.setStockQuantity(request.getStockQuantity());
         Product savedProduct = productRepository.save(product);
 
         return new ProductResponse(savedProduct);

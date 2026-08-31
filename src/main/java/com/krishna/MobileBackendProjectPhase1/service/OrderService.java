@@ -7,9 +7,7 @@ import org.springframework.data.domain.Page;
 
 public interface OrderService {
 
-
     OrderResponse createOrder(OrderRequest request);
-
 
     OrderResponse getOrderById(Long id);
 

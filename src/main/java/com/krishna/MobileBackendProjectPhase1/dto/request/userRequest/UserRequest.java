@@ -19,16 +19,12 @@ public class UserRequest {
     private String email;
 
     @NotBlank(message = "Mobile number is required")
-    @Pattern(
-            regexp = "^[6-9][0-9]{9}$",
-            message = "Mobile number must contain 10 digits and start with 6-9"
+    @Pattern(regexp = "^[6-9][0-9]{9}$", message = "Mobile number must contain 10 digits and start with 6-9"
     )
     private String mobileNumber;
 
     @NotBlank(message = "Password is required")
-    @Size(
-            min = 8,
-            message = "Password must contain at least 8 characters"
+    @Size(min = 8, message = "Password must contain at least 8 characters"
     )
     private String password;
 
