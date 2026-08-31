@@ -106,9 +106,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse cancelOrder(Long orderId) {
-        /*
-         * Lock order row.
-         */
+         // Lock order row.
         Order order = orderRepository.findByIdForUpdate(orderId).orElseThrow(() ->new RuntimeException("Order not found with id: " + orderId));
         if (order.getStatus() == OrderStatus.CANCELLED) {
 
