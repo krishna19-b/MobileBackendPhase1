@@ -1,22 +1,5 @@
 # MobileBackendPhase1
 
-Project Structure
-src
- └── main
-     └── java
-         └── com.krishna.MobileBackendProjectPhase1
-             ├── config
-             ├── controller
-             ├── service
-             ├── repository
-             ├── entity
-             ├── dto
-             │   ├── request
-             │   └── response
-             ├── exception
-             ├── JwtFilter
-             └── util
-
 Project Overview
 
 MobileBackendProjectPhase1 is a backend application developed using Java, Spring Boot, Spring Data JPA, PostgreSQL, and Spring Security.
