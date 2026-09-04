@@ -16,8 +16,6 @@ public class ProfileRequest {
     public void setDateOfBirth(String dateOfBirth) {
         this.dateOfBirth = dateOfBirth;
     }
-
-
     public String getGender() {
         return gender;
     }

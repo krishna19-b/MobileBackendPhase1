@@ -1,0 +1,277 @@
+Now let's understand the flow
+
+There are two separate flows.
+
+FLOW 1 — Registration
+
+You send:
+
+POST /api/auth/register
+
+Body:
+
+{
+    "email": "krishna@gmail.com",
+    "password": "admin24"
+}
+Starting point
+
+The flow starts here:
+
+@PostMapping("/register")
+public ResponseEntity<ApiResponse<String>> register(...)
+
+inside:
+
+AuthController
+
+Then:
+
+AuthController
+      ↓
+authService.register(request)
+
+Then:
+
+AuthServiceImpl
+      ↓
+passwordEncoder.encode("admin24")
+
+Suppose BCrypt produces:
+
+$2a$10$abc123........
+
+Then:
+
+UserSecurity
+email    = krishna@gmail.com
+password = $2a$10$abc123........
+role     = USER
+
+Then:
+
+userSecurityRepository.save(user);
+
+Finally:
+
+PostgreSQL
+
+Database:
+
+id | email              | password               | role
+---+--------------------+------------------------+------
+1  | krishna@gmail.com  | $2a$10$abc123......... | USER
+
+The plain password admin24 is never stored.
+
+FLOW 2 — Login
+
+Now you send:
+
+POST /api/auth/login
+
+Body:
+
+{
+    "email": "krishna@gmail.com",
+    "password": "admin24"
+}
+Starting point
+
+Again, the first point in your application code is:
+
+@PostMapping("/login")
+
+Then:
+
+AuthController
+       ↓
+AuthServiceImpl
+
+Your service executes:
+
+authenticationManager.authenticate(
+    new UsernamePasswordAuthenticationToken(
+        request.getEmail(),
+        request.getPassword()
+    )
+);
+
+This is where you hand authentication over to Spring Security.
+
+From here Spring Security takes over
+AuthServiceImpl
+      │
+      ▼
+AuthenticationManager
+      │
+      ▼
+ProviderManager
+      │
+      ▼
+DaoAuthenticationProvider
+
+Your SecurityConfig created:
+
+DaoAuthenticationProvider provider =
+        new DaoAuthenticationProvider(userDetailsService);
+
+So the provider knows:
+
+"When I need user information, call UserSecurityService."
+
+Therefore:
+
+DaoAuthenticationProvider
+        ↓
+UserSecurityService
+
+It calls:
+
+loadUserByUsername("krishna@gmail.com")
+Then your database is accessed
+
+Your code:
+
+return userSecurityRepository
+        .findByEmail(email)
+
+runs.
+
+Conceptually:
+
+SELECT *
+FROM user_security
+WHERE email = 'krishna@gmail.com';
+
+Database returns:
+
+email = krishna@gmail.com
+password = $2a$10$abc123........
+role = USER
+
+Because your entity implements:
+
+UserDetails
+
+Spring Security can directly use this object.
+
+Then password verification happens
+
+Spring now has two things:
+
+User entered
+admin24
+Database
+$2a$10$abc123........
+
+Your:
+
+PasswordEncoder
+
+is:
+
+new BCryptPasswordEncoder()
+
+Spring performs the equivalent of:
+
+passwordEncoder.matches(
+    "admin24",
+    "$2a$10$abc123........"
+);
+
+If correct:
+
+true
+
+Authentication succeeds.
+
+If wrong:
+
+false
+
+Authentication fails.
+
+Complete flow
+
+Remember this diagram:
+
+                REGISTER
+                   │
+                   ▼
+            AuthController
+                   │
+                   ▼
+            AuthServiceImpl
+                   │
+                   ▼
+        BCryptPasswordEncoder
+                   │
+                   ▼
+             UserSecurity
+                   │
+                   ▼
+           UserSecurityRepository
+                   │
+                   ▼
+               DATABASE
+
+Then login:
+
+                  LOGIN
+                    │
+                    ▼
+             AuthController
+                    │
+                    ▼
+             AuthServiceImpl
+                    │
+                    ▼
+          AuthenticationManager
+                    │
+                    ▼
+             ProviderManager
+                    │
+                    ▼
+        DaoAuthenticationProvider
+                    │
+                    ▼
+          UserSecurityService
+                    │
+                    ▼
+        UserSecurityRepository
+                    │
+                    ▼
+                DATABASE
+                    │
+                    ▼
+             UserSecurity
+                    │
+                    ▼
+        BCryptPasswordEncoder
+                    │
+              matches()
+               /      \
+             TRUE     FALSE
+              │         │
+              ▼         ▼
+          SUCCESS      ERROR
+The most important distinction
+
+Registration:
+
+passwordEncoder.encode()
+
+Login:
+
+authenticationManager.authenticate()
+
+You should not do this during login:
+
+passwordEncoder.encode(request.getPassword())
+
+and you should not do:
+
+user.getPassword().equals(request.getPassword())
+
+Spring Security's DaoAuthenticationProvider handles the BCrypt comparison for you.

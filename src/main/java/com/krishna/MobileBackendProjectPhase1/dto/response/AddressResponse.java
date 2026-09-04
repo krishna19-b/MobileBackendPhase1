@@ -11,10 +11,7 @@ public class AddressResponse {
     private String state;
     private String pincode;
     private Long userId;
-
-
     public AddressResponse(Address address) {
-
         this.id = address.getId();
         this.houseNumber = address.getHouseNumber();
         this.street = address.getStreet();
@@ -26,8 +23,6 @@ public class AddressResponse {
             this.userId = address.getUser().getId();
         }
     }
-
-
     public Long getId() {
         return id;
     }

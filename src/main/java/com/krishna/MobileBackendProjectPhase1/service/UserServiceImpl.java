@@ -14,33 +14,33 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class UserServiceImpl
-        implements UserService {
+public class UserServiceImpl {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepository userRepository) {
+    public UserServiceImpl(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder) {
 
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    // Add User
-
-    @Override
+    // ADD USER
     @Transactional
     public UserResponse createUser(UserRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-
             throw new DuplicateUserException("Email already registered: " + request.getEmail());
         }
 
         if (userRepository.existsByMobileNumber(request.getMobileNumber())) {
-
             throw new DuplicateUserException("Mobile number already registered: " + request.getMobileNumber());
         }
 
@@ -50,27 +50,25 @@ public class UserServiceImpl
         user.setLastName(request.getLastName());
         user.setEmail(request.getEmail());
         user.setMobileNumber(request.getMobileNumber());
-        user.setPassword(request.getPassword());
 
+        // Store password as BCrypt hash
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        // Default role for newly created users
+        user.setRole("USER");
+        user.setEnabled(true);
         User savedUser = userRepository.save(user);
-
         return new UserResponse(savedUser);
     }
 
-    //Get All Users
-
-    @Override
+    // GET ALL USERS
     @Transactional(readOnly = true)
     public Page<UserResponse> getAllUsers(int page, int size, String sort) {
-
         Pageable pageable = createPageable(page, size, sort);
-
         Page<User> users = userRepository.findAll(pageable);
-
         return users.map(UserResponse::new);
     }
 
-    @Override
+    // GET USER BY ID
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
 
@@ -79,77 +77,127 @@ public class UserServiceImpl
         return new UserResponse(user);
     }
 
-    @Override
+    // UPDATE USER
     @Transactional
     public UserResponse updateUser(Long id, UserUpdateRequest request) {
 
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
 
+        // Check duplicate email
         if (userRepository.existsByEmailAndIdNot(request.getEmail(), id)) {
 
             throw new DuplicateUserException("Email already registered: " + request.getEmail());
         }
 
-        if (userRepository.existsByMobileNumberAndIdNot(request.getMobileNumber(), id)) {
+        // Check duplicate mobile number
+        if (userRepository.existsByMobileNumberAndIdNot(
+                request.getMobileNumber(),
+                id)) {
 
-            throw new DuplicateUserException("Mobile number already registered: " + request.getMobileNumber());
+            throw new DuplicateUserException(
+                    "Mobile number already registered: "
+                            + request.getMobileNumber()
+            );
         }
 
-        user.setFirstName(request.getFirstName());
+        user.setFirstName(
+                request.getFirstName()
+        );
 
-        user.setLastName(request.getLastName());
+        user.setLastName(
+                request.getLastName()
+        );
 
-        user.setEmail(request.getEmail());
+        user.setEmail(
+                request.getEmail()
+        );
 
-        user.setMobileNumber(request.getMobileNumber());
+        user.setMobileNumber(
+                request.getMobileNumber()
+        );
 
-        if (request.getPassword() != null && !request.getPassword().isBlank()) {
-            user.setPassword(request.getPassword());
+        // Only update password when a new password is provided
+        if (request.getPassword() != null
+                && !request.getPassword().isBlank()) {
+
+            user.setPasswordHash(
+                    passwordEncoder.encode(
+                            request.getPassword()
+                    )
+            );
         }
 
-        return new UserResponse(userRepository.save(user));
+        return new UserResponse(
+                userRepository.save(user)
+        );
     }
 
-    // Delete User
-
-    @Override
+    // DELETE USER
     @Transactional
     public void deleteUser(Long id) {
 
         if (!userRepository.existsById(id)) {
 
-            throw new UserNotFoundException("User not found with id: " + id);
+            throw new UserNotFoundException(
+                    "User not found with id: " + id
+            );
         }
 
         userRepository.deleteById(id);
     }
 
-    @Override
+    // SEARCH USERS
     @Transactional(readOnly = true)
-    public Page<UserResponse> searchUsers(String name, int page, int size, String sort) {
+    public Page<UserResponse> searchUsers(
+            String name,
+            int page,
+            int size,
+            String sort) {
 
-        Pageable pageable = createPageable(page, size, sort);
+        Pageable pageable =
+                createPageable(page, size, sort);
 
-        Specification<User> specification = UserSpecification.nameContains(name);
+        Specification<User> specification =
+                UserSpecification.nameContains(name);
 
-        Page<User> users = userRepository.findAll(specification,pageable);
+        Page<User> users =
+                userRepository.findAll(
+                        specification,
+                        pageable
+                );
 
         return users.map(UserResponse::new);
     }
 
-    private Pageable createPageable(int page, int size, String sort) {
+    // PAGINATION + SORTING
+    private Pageable createPageable(
+            int page,
+            int size,
+            String sort) {
 
-        String[] sortParts = sort.split(",");
+        String[] sortParts =
+                sort.split(",");
 
-        String property = sortParts[0];
+        String property =
+                sortParts[0];
 
-        Sort.Direction direction = Sort.Direction.ASC;
+        Sort.Direction direction =
+                Sort.Direction.ASC;
 
-        if (sortParts.length > 1 && sortParts[1].equalsIgnoreCase("desc")) {
+        if (sortParts.length > 1
+                && sortParts[1].equalsIgnoreCase("desc")) {
 
-            direction = Sort.Direction.DESC;
+            direction =
+                    Sort.Direction.DESC;
         }
 
-        return PageRequest.of(page, size, Sort.by(direction, property));
+        return PageRequest.of(
+                page,
+                size,
+                Sort.by(
+                        direction,
+                        property
+                )
+        );
     }
 }

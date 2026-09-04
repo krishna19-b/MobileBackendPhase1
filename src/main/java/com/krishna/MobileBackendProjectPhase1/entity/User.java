@@ -1,14 +1,24 @@
 package com.krishna.MobileBackendProjectPhase1.entity;
 
 import jakarta.persistence.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "users2")
-public class User {
+@Table(
+        name = "users2",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "email"),
+                @UniqueConstraint(columnNames = "mobile_number")
+        }
+)
+public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,43 +35,49 @@ public class User {
     @Column(name = "mobile_number", nullable = false, unique = true)
     private String mobileNumber;
 
-    @Column(nullable = false)
-    private String password;
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
 
-    // Created / Updated Time
+    // USER / ADMIN / DRIVER
+    @Column(nullable = false)
+    private String role;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    // One User -> One Profile
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToOne(
+            mappedBy = "user",
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY
+    )
     private Profile profile;
 
-    // One User -> Many Addresses
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(
+            mappedBy = "user",
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY
+    )
     private List<Address> addresses = new ArrayList<>();
 
-    // One User -> Many Orders
-
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    @OneToMany(
+            mappedBy = "user",
+            fetch = FetchType.LAZY
+    )
     private List<Order> orders = new ArrayList<>();
-
-
-    public User() {
-    }
-
 
     @PrePersist
     protected void onCreate() {
 
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
+        LocalDateTime now = LocalDateTime.now();
 
+        createdAt = now;
+        updatedAt = now;
+    }
 
     @PreUpdate
     protected void onUpdate() {
@@ -69,6 +85,49 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
+    @Override
+    public String getUsername() {
+
+        return email;
+    }
+
+    @Override
+    public String getPassword() {
+
+        return passwordHash;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+
+        return List.of(
+                new SimpleGrantedAuthority("ROLE_" + role)
+        );
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+
+        return enabled;
+    }
 
     public Long getId() {
         return id;
@@ -78,7 +137,6 @@ public class User {
         this.id = id;
     }
 
-
     public String getFirstName() {
         return firstName;
     }
@@ -86,7 +144,6 @@ public class User {
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
-
 
     public String getLastName() {
         return lastName;
@@ -96,7 +153,6 @@ public class User {
         this.lastName = lastName;
     }
 
-
     public String getEmail() {
         return email;
     }
@@ -104,7 +160,6 @@ public class User {
     public void setEmail(String email) {
         this.email = email;
     }
-
 
     public String getMobileNumber() {
         return mobileNumber;
@@ -114,15 +169,29 @@ public class User {
         this.mobileNumber = mobileNumber;
     }
 
-
-    public String getPassword() {
-        return password;
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public boolean isEnabledValue() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -133,6 +202,10 @@ public class User {
     }
 
 
+    // =========================
+    // PROFILE
+    // =========================
+
     public Profile getProfile() {
         return profile;
     }
@@ -141,11 +214,15 @@ public class User {
 
         this.profile = profile;
 
-        if (profile != null) {
+        if (profile != null && profile.getUser() != this) {
             profile.setUser(this);
         }
     }
 
+
+    // =========================
+    // ADDRESS
+    // =========================
 
     public List<Address> getAddresses() {
         return addresses;
@@ -155,6 +232,17 @@ public class User {
         this.addresses = addresses;
     }
 
+    public void addAddress(Address address) {
+
+        addresses.add(address);
+        address.setUser(this);
+    }
+
+    public void removeAddress(Address address) {
+
+        addresses.remove(address);
+        address.setUser(null);
+    }
 
     public List<Order> getOrders() {
         return orders;
@@ -162,22 +250,5 @@ public class User {
 
     public void setOrders(List<Order> orders) {
         this.orders = orders;
-    }
-
-    // Address Helper Method
-
-    public void addAddress(Address address) {
-
-        addresses.add(address);
-
-        address.setUser(this);
-    }
-
-
-    public void removeAddress(Address address) {
-
-        addresses.remove(address);
-
-        address.setUser(null);
     }
 }

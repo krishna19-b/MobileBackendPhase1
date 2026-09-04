@@ -22,7 +22,6 @@ public class ProfileServiceImp implements ProfileService {
         this.userRepository = userRepository;
     }
 
-
     @Override
     public ProfileResponse createProfile(Long userId, ProfileRequest request) {
 
@@ -30,18 +29,12 @@ public class ProfileServiceImp implements ProfileService {
         if (profileRepository.findByUserId(userId).isPresent()) {
             throw new RuntimeException("Profile already exists for user: " + userId);
         }
-
-
         Profile profile = new Profile();
-
         profile.setDateOfBirth(request.getDateOfBirth());
         profile.setGender(request.getGender());
         profile.setBio(request.getBio());
-
         profile.setUser(user);
-
         Profile savedProfile = profileRepository.save(profile);
-
         return new ProfileResponse(savedProfile);
     }
 

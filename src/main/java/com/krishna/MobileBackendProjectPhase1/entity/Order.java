@@ -21,13 +21,23 @@ public class Order {
     @Column(nullable = false)
     private OrderStatus status;
 
+    // Customer who placed the order
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    private List<OrderItem> orderItems =
-            new ArrayList<>();
+    // Driver assigned to deliver the order
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "driver_id")
+    private User driver;
+
+    @OneToMany(
+            mappedBy = "order",
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY,
+            orphanRemoval = true
+    )
+    private List<OrderItem> orderItems = new ArrayList<>();
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -41,16 +51,12 @@ public class Order {
     }
 
     public void addOrderItem(OrderItem item) {
-
         orderItems.add(item);
-
         item.setOrder(this);
     }
 
     public void removeOrderItem(OrderItem item) {
-
         orderItems.remove(item);
-
         item.setOrder(null);
     }
 
@@ -86,13 +92,19 @@ public class Order {
         this.user = user;
     }
 
+    public User getDriver() {
+        return driver;
+    }
+
+    public void setDriver(User driver) {
+        this.driver = driver;
+    }
+
     public List<OrderItem> getOrderItems() {
         return orderItems;
     }
 
-    public void setOrderItems(
-            List<OrderItem> orderItems) {
-
+    public void setOrderItems(List<OrderItem> orderItems) {
         this.orderItems = orderItems;
     }
 

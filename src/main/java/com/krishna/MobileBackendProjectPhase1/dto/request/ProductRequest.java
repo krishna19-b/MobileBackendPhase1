@@ -20,7 +20,6 @@ public class ProductRequest {
     @Positive(message = "Stock quantity must be greater than 0")
     private Integer stockQuantity;
 
-
     public String getName() {
         return name;
     }
