@@ -1,9 +1,11 @@
 package com.krishna.MobileBackendProjectPhase1.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "addresses")
+@Schema(description="User Address")
 public class Address {
 
     @Id

@@ -1,3 +1,4 @@
+
 package com.krishna.MobileBackendProjectPhase1.dto.response;
 
 import com.krishna.MobileBackendProjectPhase1.entity.OrderItem;
@@ -8,46 +9,69 @@ public class OrderItemResponse {
     private Long productId;
     private String productName;
     private int quantity;
-    private double price;
-    private double subtotal;
-    public OrderItemResponse(OrderItem item) {
+    private Double price;
+    private Double subtotal;
 
-        this.id = item.getId();
-        this.productId =
-                item.getProduct().getId();
-        this.productName =
-                item.getProduct().getName();
-        this.quantity =
-                item.getQuantity();
-        this.price =
-                item.getProduct().getPrice();
-        this.subtotal =
-                item.getProduct().getPrice()
-                        * item.getQuantity();
+    public OrderItemResponse() {
     }
 
+    public OrderItemResponse(OrderItem orderItem) {
+        this.id = orderItem.getId();
+        this.quantity = orderItem.getQuantity();
+        this.price = orderItem.getPrice();
+        this.subtotal = orderItem.getSubtotal();
+
+        if (orderItem.getProduct() != null) {
+            this.productId = orderItem.getProduct().getId();
+            this.productName = orderItem.getProduct().getName();
+        }
+    }
 
     public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public Long getProductId() {
         return productId;
     }
 
+    public void setProductId(Long productId) {
+        this.productId = productId;
+    }
+
     public String getProductName() {
         return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
     }
 
     public int getQuantity() {
         return quantity;
     }
 
-    public double getPrice() {
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
+    public Double getPrice() {
         return price;
     }
 
-    public double getSubtotal() {
+    public void setPrice(Double price) {
+        this.price = price;
+    }
+
+    public Double getSubtotal() {
         return subtotal;
+    }
+
+    public void setSubtotal(Double subtotal) {
+        this.subtotal = subtotal;
     }
 }

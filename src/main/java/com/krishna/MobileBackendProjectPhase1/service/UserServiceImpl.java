@@ -3,6 +3,7 @@ package com.krishna.MobileBackendProjectPhase1.service;
 import com.krishna.MobileBackendProjectPhase1.dto.request.userRequest.UserRequest;
 import com.krishna.MobileBackendProjectPhase1.dto.request.userRequest.UserUpdateRequest;
 import com.krishna.MobileBackendProjectPhase1.dto.response.UserResponse;
+import com.krishna.MobileBackendProjectPhase1.entity.OrderStatus;
 import com.krishna.MobileBackendProjectPhase1.entity.User;
 import com.krishna.MobileBackendProjectPhase1.exception.DuplicateUserException;
 import com.krishna.MobileBackendProjectPhase1.exception.UserNotFoundException;
@@ -56,6 +57,7 @@ public class UserServiceImpl {
         // Default role for newly created users
         user.setRole("USER");
         user.setEnabled(true);
+        user.setStatus(OrderStatus.ACTIVE);
         User savedUser = userRepository.save(user);
         return new UserResponse(savedUser);
     }

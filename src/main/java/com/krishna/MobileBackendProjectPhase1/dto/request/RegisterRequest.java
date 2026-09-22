@@ -20,7 +20,6 @@ public class RegisterRequest {
     @NotBlank
     @Pattern(regexp = "^[6-9][0-9]{9}$")
     private String mobileNumber;
-
     @NotBlank
     @Size(min = 8)
     private String password;

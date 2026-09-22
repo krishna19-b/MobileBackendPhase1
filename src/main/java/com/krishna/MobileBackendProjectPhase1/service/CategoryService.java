@@ -6,6 +6,10 @@ import com.krishna.MobileBackendProjectPhase1.entity.Category;
 import com.krishna.MobileBackendProjectPhase1.exception.DuplicateCategoryException;
 import com.krishna.MobileBackendProjectPhase1.exception.CategoryNotFoundException;
 import com.krishna.MobileBackendProjectPhase1.repository.CategoryRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +25,12 @@ public class CategoryService {
     }
 
     // CREATE
+
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "categories", allEntries = true),
+            @CacheEvict(value = "category", allEntries = true)
+    })
     public CategoryResponse createCategory(CategoryRequest request) {
 
         if (categoryRepository.existsByName(request.getName())) {
@@ -40,6 +49,8 @@ public class CategoryService {
     }
 
     // GET ALL
+
+    @Cacheable(value = "categories", key = "'all'")
     @Transactional(readOnly = true)
     public List<CategoryResponse> getAllCategories() {
 
@@ -51,6 +62,8 @@ public class CategoryService {
     }
 
     // GET BY ID
+
+    @Cacheable(value = "category", key = "#id")
     @Transactional(readOnly = true)
     public CategoryResponse getCategoryById(Long id) {
 
@@ -65,7 +78,16 @@ public class CategoryService {
     }
 
     // UPDATE
+
     @Transactional
+    @Caching(
+            put = {
+                    @CachePut(value = "category", key = "#id")
+            },
+            evict = {
+                    @CacheEvict(value = "categories", allEntries = true)
+            }
+    )
     public CategoryResponse updateCategory(
             Long id,
             CategoryRequest request) {
@@ -93,7 +115,12 @@ public class CategoryService {
     }
 
     // DELETE
+
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "category", key = "#id"),
+            @CacheEvict(value = "categories", allEntries = true)
+    })
     public void deleteCategory(Long id) {
 
         Category category = categoryRepository.findById(id)

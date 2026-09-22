@@ -22,13 +22,16 @@ public class Product {
     @Column(nullable = false)
     private int stockQuantity;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY)
-    private List<OrderItem> orderItems =
-            new ArrayList<>();
+    private List<OrderItem> orderItems = new ArrayList<>();
 
     public Product() {
     }
@@ -65,6 +68,14 @@ public class Product {
         this.stockQuantity = stockQuantity;
     }
 
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
     public Category getCategory() {
         return category;
     }
@@ -77,9 +88,8 @@ public class Product {
         return orderItems;
     }
 
-    public void setOrderItems(
-            List<OrderItem> orderItems) {
-
+    public void setOrderItems(List<OrderItem> orderItems) {
         this.orderItems = orderItems;
     }
+
 }

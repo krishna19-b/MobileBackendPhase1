@@ -12,7 +12,6 @@ public class PageResponse<T> {
 
     public PageResponse() {
     }
-
     public PageResponse(List<T> content,
                         int page,
                         int size,

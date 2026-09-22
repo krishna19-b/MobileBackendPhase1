@@ -1,6 +1,5 @@
 package com.krishna.MobileBackendProjectPhase1.service;
 
-import com.krishna.MobileBackendProjectPhase1.dto.request.OrderItemRequest;
 import com.krishna.MobileBackendProjectPhase1.dto.request.OrderRequest;
 import com.krishna.MobileBackendProjectPhase1.dto.request.OrderStatusUpdateRequest;
 import com.krishna.MobileBackendProjectPhase1.dto.response.OrderResponse;
@@ -17,82 +16,88 @@ import com.krishna.MobileBackendProjectPhase1.exception.UserNotFoundException;
 import com.krishna.MobileBackendProjectPhase1.repository.OrderRepository;
 import com.krishna.MobileBackendProjectPhase1.repository.ProductRepository;
 import com.krishna.MobileBackendProjectPhase1.repository.UserRepository;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class OrderServiceImpl implements OrderService {
+public class OrderServiceImpl {
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final NotificationServiceImpl notificationService;
 
-    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, ProductRepository productRepository) {
-
+    public OrderServiceImpl(
+            OrderRepository orderRepository,
+            UserRepository userRepository,
+            ProductRepository productRepository,
+            NotificationServiceImpl notificationService
+    ) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
+        this.notificationService = notificationService;
     }
 
-    // CREATE ORDER
-    @Override
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
+
         User loggedInUser = getLoggedInUser();
 
-        // USER can create order only for himself
-        // ADMIN can create order for any user
-        if (!hasRole("ADMIN") && !loggedInUser.getId().equals(request.getUserId())) {
-
-            throw new AccessDeniedException("You can create an order only for yourself");
+        if (hasRole("USER") && !loggedInUser.getId().equals(request.getUserId())) {
+            throw new RuntimeException("Users can create orders only for themselves");
         }
-        User user = userRepository.findById(request.getUserId()).orElseThrow(() -> new UserNotFoundException("User not found with id: " + request.getUserId()));
+
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "User not found with id: " + request.getUserId()
+                        )
+                );
+
         Order order = new Order();
         order.setUser(user);
         order.setStatus(OrderStatus.PLACED);
+        order.setTotalAmount(0);
+
         double totalAmount = 0;
-        for (OrderItemRequest itemRequest : request.getItems()) {
-            Product product =
-                    productRepository.findByIdForUpdate(
-                            itemRequest.getProductId()
-                    ).orElseThrow(() ->
+
+        for (var itemRequest : request.getItems()) {
+
+            Product product = productRepository.findById(itemRequest.getProductId())
+                    .orElseThrow(() ->
                             new ProductNotFoundException(
-                                    "Product not found with id: "
-                                            + itemRequest.getProductId()
+                                    "Product not found with id: " +
+                                            itemRequest.getProductId()
                             )
                     );
 
-            int quantity = itemRequest.getQuantity();
-
-            if (product.getStockQuantity() < quantity) {
-
+            if (product.getStockQuantity() < itemRequest.getQuantity()) {
                 throw new InsufficientStockException(
-                        "Insufficient stock for product: "
-                                + product.getName()
+                        "Insufficient stock for product: " +
+                                product.getName()
                 );
             }
 
             double subtotal =
-                    product.getPrice() * quantity;
+                    product.getPrice() * itemRequest.getQuantity();
 
             OrderItem orderItem = new OrderItem();
             orderItem.setProduct(product);
-            orderItem.setQuantity(quantity);
+            orderItem.setQuantity(itemRequest.getQuantity());
+            orderItem.setPrice(product.getPrice());
+            orderItem.setSubtotal(subtotal);
 
             order.addOrderItem(orderItem);
 
             product.setStockQuantity(
-                    product.getStockQuantity() - quantity
+                    product.getStockQuantity() -
+                            itemRequest.getQuantity()
             );
 
             totalAmount += subtotal;
@@ -100,14 +105,64 @@ public class OrderServiceImpl implements OrderService {
 
         order.setTotalAmount(totalAmount);
 
-        Order savedOrder =
-                orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
+
+        notificationService.sendOrderCreatedNotification(
+                savedOrder.getId(),
+                user.getId()
+        );
 
         return new OrderResponse(savedOrder);
     }
 
-    // GET ORDER BY ID
-    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> getAllOrders(
+            int page,
+            int size,
+            String sort
+    ) {
+
+        if (!hasRole("ADMIN")) {
+            throw new RuntimeException("Only admin can view all orders");
+        }
+
+        PageRequest pageable = createPageable(page, size, sort);
+
+        return orderRepository.findAll(pageable)
+                .map(OrderResponse::new);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> getOrdersByUser(
+            Long userId,
+            int page,
+            int size,
+            String sort
+    ) {
+
+        User loggedInUser = getLoggedInUser();
+
+        if (hasRole("USER") &&
+                !loggedInUser.getId().equals(userId)) {
+
+            throw new RuntimeException(
+                    "Users can view only their own orders"
+            );
+        }
+
+        userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "User not found with id: " + userId
+                        )
+                );
+
+        PageRequest pageable = createPageable(page, size, sort);
+
+        return orderRepository.findByUserId(userId, pageable)
+                .map(OrderResponse::new);
+    }
+
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(Long id) {
 
@@ -123,329 +178,224 @@ public class OrderServiceImpl implements OrderService {
         return new OrderResponse(order);
     }
 
-    // GET USER ORDERS
-    @Override
-    @Transactional(readOnly = true)
-    public Page<OrderResponse> getOrdersByUser(
-            Long userId,
-            int page,
-            int size,
-            String sort) {
-
-        User loggedInUser = getLoggedInUser();
-
-        if (!hasRole("ADMIN")
-                && !loggedInUser.getId().equals(userId)) {
-
-            throw new AccessDeniedException(
-                    "You can access only your own orders"
-            );
-        }
-
-        if (!userRepository.existsById(userId)) {
-            throw new UserNotFoundException(
-                    "User not found with id: " + userId
-            );
-        }
-
-        Pageable pageable =
-                createPageable(page, size, sort);
-
-        Page<Order> orders =
-                orderRepository.findByUserId(
-                        userId,
-                        pageable
-                );
-
-        return orders.map(OrderResponse::new);
-    }
-
-    // GET ALL ORDERS - ADMIN
-    @Override
-    @Transactional(readOnly = true)
-    public Page<OrderResponse> getAllOrders(
-            int page,
-            int size,
-            String sort) {
-
-        if (!hasRole("ADMIN")) {
-            throw new AccessDeniedException(
-                    "Only ADMIN can access all orders"
-            );
-        }
-
-        Pageable pageable =
-                createPageable(page, size, sort);
-
-        Page<Order> orders =
-                orderRepository.findAll(pageable);
-
-        return orders.map(OrderResponse::new);
-    }
-
-    // UPDATE ORDER STATUS - ADMIN
-    @Override
     @Transactional
     public OrderResponse updateOrderStatus(
-            Long orderId,
-            OrderStatusUpdateRequest request) {
+            Long id,
+            OrderStatusUpdateRequest request
+    ) {
 
         if (!hasRole("ADMIN")) {
-            throw new AccessDeniedException(
-                    "Only ADMIN can update order status"
+            throw new RuntimeException(
+                    "Only admin can update order status"
             );
         }
 
-        Order order =
-                orderRepository.findByIdForUpdate(orderId)
-                        .orElseThrow(() ->
-                                new OrderNotFoundException(
-                                        "Order not found with id: "
-                                                + orderId
-                                )
-                        );
+        Order order = orderRepository.findByIdForUpdate(id)
+                .orElseThrow(() ->
+                        new OrderNotFoundException(
+                                "Order not found with id: " + id
+                        )
+                );
 
         validateStatusChange(order);
 
         order.setStatus(request.getStatus());
 
-        return new OrderResponse(order);
+        return new OrderResponse(
+                orderRepository.save(order)
+        );
     }
 
-    // CANCEL ORDER
-    @Override
     @Transactional
-    public OrderResponse cancelOrder(Long orderId) {
+    public OrderResponse cancelOrder(Long id) {
 
-        Order order =
-                orderRepository.findByIdForUpdate(orderId)
-                        .orElseThrow(() ->
-                                new OrderNotFoundException(
-                                        "Order not found with id: "
-                                                + orderId
-                                )
-                        );
+        Order order = orderRepository.findByIdForUpdate(id)
+                .orElseThrow(() ->
+                        new OrderNotFoundException(
+                                "Order not found with id: " + id
+                        )
+                );
 
         checkOrderOwnership(order);
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
-
             throw new InvalidOrderStatusException(
                     "Order is already cancelled"
             );
         }
 
         if (order.getStatus() == OrderStatus.DELIVERED) {
-
             throw new InvalidOrderStatusException(
                     "Delivered order cannot be cancelled"
             );
         }
 
-        for (OrderItem item : order.getOrderItems()) {
+        for (OrderItem orderItem : order.getOrderItems()) {
 
-            Product product =
-                    productRepository.findByIdForUpdate(
-                            item.getProduct().getId()
-                    ).orElseThrow(() ->
-                            new ProductNotFoundException(
-                                    "Product not found with id: "
-                                            + item.getProduct().getId()
-                            )
-                    );
+            Product product = productRepository.findByIdForUpdate(
+                    orderItem.getProduct().getId()
+            ).orElseThrow(() ->
+                    new ProductNotFoundException(
+                            "Product not found with id: " +
+                                    orderItem.getProduct().getId()
+                    )
+            );
 
             product.setStockQuantity(
-                    product.getStockQuantity()
-                            + item.getQuantity()
+                    product.getStockQuantity() +
+                            orderItem.getQuantity()
             );
         }
 
         order.setStatus(OrderStatus.CANCELLED);
 
-        return new OrderResponse(order);
+        return new OrderResponse(
+                orderRepository.save(order)
+        );
     }
 
-    // =========================================================
-    // DRIVER FUNCTIONALITY
-    // =========================================================
-
-    // ADMIN ASSIGNS DRIVER TO ORDER
-    @Override
     @Transactional
     public OrderResponse assignDriver(
             Long orderId,
-            Long driverId) {
+            Long driverId
+    ) {
 
-        // Only ADMIN can assign drivers
         if (!hasRole("ADMIN")) {
-            throw new AccessDeniedException(
-                    "Only ADMIN can assign a driver"
+            throw new RuntimeException(
+                    "Only admin can assign drivers"
             );
         }
 
-        Order order =
-                orderRepository.findByIdForUpdate(orderId)
-                        .orElseThrow(() ->
-                                new OrderNotFoundException(
-                                        "Order not found with id: "
-                                                + orderId
-                                )
-                        );
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() ->
+                        new OrderNotFoundException(
+                                "Order not found with id: " + orderId
+                        )
+                );
 
-        User driver =
-                userRepository.findById(driverId)
-                        .orElseThrow(() ->
-                                new UserNotFoundException(
-                                        "User not found with id: "
-                                                + driverId
-                                )
-                        );
+        User driver = userRepository.findById(driverId)
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Driver not found with id: " + driverId
+                        )
+                );
 
-        // Make sure selected user is actually a DRIVER
-        if (!"DRIVER".equalsIgnoreCase(
-                driver.getRole())) {
-
-            throw new AccessDeniedException(
-                    "Selected user is not a DRIVER"
+        if (!"DRIVER".equalsIgnoreCase(driver.getRole())) {
+            throw new RuntimeException(
+                    "Selected user is not a driver"
             );
         }
 
-        // Don't assign driver to cancelled order
-        if (order.getStatus() == OrderStatus.CANCELLED) {
+        if (order.getStatus() == OrderStatus.CANCELLED ||
+                order.getStatus() == OrderStatus.DELIVERED) {
 
             throw new InvalidOrderStatusException(
-                    "Cannot assign driver to a cancelled order"
-            );
-        }
-
-        // Don't assign driver to delivered order
-        if (order.getStatus() == OrderStatus.DELIVERED) {
-
-            throw new InvalidOrderStatusException(
-                    "Cannot assign driver to a delivered order"
+                    "Driver cannot be assigned to this order"
             );
         }
 
         order.setDriver(driver);
 
-        return new OrderResponse(order);
+        return new OrderResponse(
+                orderRepository.save(order)
+        );
     }
 
-    // DRIVER GETS ONLY HIS ASSIGNED ORDERS
-    @Override
     @Transactional(readOnly = true)
     public Page<OrderResponse> getAssignedOrders(
             Long driverId,
             int page,
             int size,
-            String sort) {
+            String sort
+    ) {
 
         User loggedInUser = getLoggedInUser();
 
-        // Driver can only access his own assigned orders
-        if (!hasRole("ADMIN")
-                && (!hasRole("DRIVER")
-                || !loggedInUser.getId().equals(driverId))) {
-
-            throw new AccessDeniedException(
-                    "You can access only your assigned orders"
+        if (!hasRole("DRIVER") && !hasRole("ADMIN")) {
+            throw new RuntimeException(
+                    "Only driver or admin can view assigned orders"
             );
         }
 
-        if (!userRepository.existsById(driverId)) {
-            throw new UserNotFoundException(
-                    "Driver not found with id: " + driverId
+        if (hasRole("DRIVER") &&
+                !loggedInUser.getId().equals(driverId)) {
+
+            throw new RuntimeException(
+                    "Drivers can view only their assigned orders"
             );
         }
 
-        Pageable pageable =
-                createPageable(page, size, sort);
-
-        Page<Order> orders =
-                orderRepository.findByDriverId(
-                        driverId,
-                        pageable
+        userRepository.findById(driverId)
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "Driver not found with id: " + driverId
+                        )
                 );
 
-        return orders.map(OrderResponse::new);
+        PageRequest pageable = createPageable(page, size, sort);
+
+        return orderRepository.findByDriverId(driverId, pageable)
+                .map(OrderResponse::new);
     }
 
-    // DRIVER UPDATES STATUS OF HIS ASSIGNED ORDER
-    @Override
     @Transactional
     public OrderResponse updateDriverOrderStatus(
-            Long orderId,
-            OrderStatusUpdateRequest request) {
+            Long id,
+            OrderStatusUpdateRequest request
+    ) {
 
         User loggedInUser = getLoggedInUser();
 
         if (!hasRole("DRIVER")) {
-            throw new AccessDeniedException(
-                    "Only DRIVER can update delivery status"
+            throw new RuntimeException(
+                    "Only driver can update driver order status"
             );
         }
 
-        Order order =
-                orderRepository.findByIdForUpdate(orderId)
-                        .orElseThrow(() ->
-                                new OrderNotFoundException(
-                                        "Order not found with id: "
-                                                + orderId
-                                )
-                        );
+        Order order = orderRepository.findByIdForUpdate(id)
+                .orElseThrow(() ->
+                        new OrderNotFoundException(
+                                "Order not found with id: " + id
+                        )
+                );
 
-        // IDOR protection:
-        // Driver must be assigned to this order
-        if (order.getDriver() == null
-                || !order.getDriver().getId()
-                .equals(loggedInUser.getId())) {
+        if (order.getDriver() == null ||
+                !order.getDriver().getId().equals(loggedInUser.getId())) {
 
-            throw new AccessDeniedException(
+            throw new RuntimeException(
                     "You are not assigned to this order"
+            );
+        }
+
+        if (!isDriverAllowedStatus(request.getStatus())) {
+            throw new InvalidOrderStatusException(
+                    "Driver can update only to OUT_FOR_DELIVERY or DELIVERED"
             );
         }
 
         validateStatusChange(order);
 
-        OrderStatus newStatus =
-                request.getStatus();
+        order.setStatus(request.getStatus());
 
-        // Driver can update only delivery-related statuses
-        if (!isDriverAllowedStatus(newStatus)) {
-
-            throw new InvalidOrderStatusException(
-                    "Driver is not allowed to set status: "
-                            + newStatus
-            );
-        }
-
-        order.setStatus(newStatus);
-
-        return new OrderResponse(order);
+        return new OrderResponse(
+                orderRepository.save(order)
+        );
     }
 
-    // =========================================================
-    // HELPER METHODS
-    // =========================================================
-
-    // CHECK ORDER OWNERSHIP
     private void checkOrderOwnership(Order order) {
 
-        // ADMIN can access every order
+        User loggedInUser = getLoggedInUser();
+
         if (hasRole("ADMIN")) {
             return;
         }
 
-        User loggedInUser = getLoggedInUser();
-
-        // DRIVER can access only his assigned order
         if (hasRole("DRIVER")) {
 
-            if (order.getDriver() == null
-                    || !order.getDriver().getId()
-                    .equals(loggedInUser.getId())) {
+            if (order.getDriver() == null ||
+                    !order.getDriver().getId().equals(loggedInUser.getId())) {
 
-                throw new AccessDeniedException(
+                throw new RuntimeException(
                         "You are not assigned to this order"
                 );
             }
@@ -453,42 +403,47 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
-        // USER can access only his own order
-        if (!order.getUser().getId()
-                .equals(loggedInUser.getId())) {
+        if (order.getUser() == null ||
+                !order.getUser().getId().equals(loggedInUser.getId())) {
 
-            throw new AccessDeniedException(
-                    "You are not allowed to access this order"
+            throw new RuntimeException(
+                    "You can access only your own orders"
             );
         }
     }
 
-    // GET LOGGED-IN USER
     private User getLoggedInUser() {
 
         Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null
-                || !authentication.isAuthenticated()) {
+        if (authentication == null ||
+                !authentication.isAuthenticated()) {
 
-            throw new AccessDeniedException(
-                    "User is not authenticated"
+            throw new RuntimeException(
+                    "Authentication required"
             );
         }
 
-        return (User) authentication.getPrincipal();
+        Object principal = authentication.getPrincipal();
+
+        if (!(principal instanceof User)) {
+            throw new RuntimeException(
+                    "Invalid authenticated user"
+            );
+        }
+
+        return (User) principal;
     }
 
-    // CHECK ROLE
     private boolean hasRole(String role) {
 
         Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null) {
+            return false;
+        }
 
         return authentication.getAuthorities()
                 .stream()
@@ -498,50 +453,42 @@ public class OrderServiceImpl implements OrderService {
                 );
     }
 
-    // COMMON STATUS VALIDATION
     private void validateStatusChange(Order order) {
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
-
             throw new InvalidOrderStatusException(
-                    "Cancelled order status cannot be changed"
+                    "Cancelled order cannot be updated"
             );
         }
 
         if (order.getStatus() == OrderStatus.DELIVERED) {
-
             throw new InvalidOrderStatusException(
-                    "Delivered order status cannot be changed"
+                    "Delivered order cannot be updated"
             );
         }
     }
 
-    // STATUSES THAT DRIVER CAN SET
-    private boolean isDriverAllowedStatus(
-            OrderStatus status) {
+    private boolean isDriverAllowedStatus(OrderStatus status) {
 
-        return status == OrderStatus.OUT_FOR_DELIVERY
-                || status == OrderStatus.DELIVERED;
+        return status == OrderStatus.OUT_FOR_DELIVERY ||
+                status == OrderStatus.DELIVERED;
     }
 
-    // PAGINATION + SORTING
-    private Pageable createPageable(
+    private PageRequest createPageable(
             int page,
             int size,
-            String sort) {
+            String sort
+    ) {
 
         String[] sortParts = sort.split(",");
 
         String property = sortParts[0];
 
         Sort.Direction direction =
-                Sort.Direction.ASC;
-
-        if (sortParts.length > 1
-                && sortParts[1].equalsIgnoreCase("desc")) {
-
-            direction = Sort.Direction.DESC;
-        }
+                sortParts.length > 1 &&
+                        "desc".equalsIgnoreCase(sortParts[1])
+                        ? Sort.Direction.DESC
+                        : Sort.Direction.ASC;
 
         return PageRequest.of(
                 page,

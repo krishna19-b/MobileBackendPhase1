@@ -42,6 +42,10 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderStatus status;
+
     @Column(nullable = false)
     private boolean enabled = true;
 
@@ -57,17 +61,10 @@ public class User implements UserDetails {
     )
     private Profile profile;
 
-    @OneToMany(
-            mappedBy = "user",
-            cascade = CascadeType.ALL,
-            fetch = FetchType.LAZY
-    )
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Address> addresses = new ArrayList<>();
 
-    @OneToMany(
-            mappedBy = "user",
-            fetch = FetchType.LAZY
-    )
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<Order> orders = new ArrayList<>();
 
     @PrePersist
@@ -115,6 +112,14 @@ public class User implements UserDetails {
     public boolean isAccountNonLocked() {
 
         return true;
+    }
+
+    public OrderStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(OrderStatus status) {
+        this.status = status;
     }
 
     @Override

@@ -57,7 +57,7 @@ public class securityConfig {
 
         configuration.setAllowedOrigins(List.of("http://localhost:3000")); //allows only 3000 port frontend request
 
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")); //allows this request methods
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE","PATCH", "OPTIONS")); //allows this request methods
 
         configuration.setAllowedHeaders(List.of("*")); // allows headers like bear token
 
@@ -86,7 +86,7 @@ public class securityConfig {
                 // Authorization
                 .authorizeHttpRequests(auth -> auth
                                 // Public APIs
-                                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/health").permitAll()
+                                .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout","/api/v1/health","/swagger-ui/**", "/swagger-ui.html","/v3/api-docs/**").permitAll()
                                 // Everything else requires authentication
                                 .anyRequest().authenticated()
                 )

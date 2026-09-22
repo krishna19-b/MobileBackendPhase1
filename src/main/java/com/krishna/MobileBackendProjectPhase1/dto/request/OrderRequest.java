@@ -14,8 +14,8 @@ public class OrderRequest {
     private Long userId;
 
     @NotEmpty(message = "Order must contain at least one item")
-    @Valid
-    private List<OrderItemRequest> items;
+
+    private List<@Valid OrderItemRequest> items;
     public Long getUserId() {
         return userId;
     }
